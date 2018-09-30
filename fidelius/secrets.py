@@ -10,6 +10,10 @@ from .utils import in_directories
 log = logging.getLogger(__name__)
 
 
+def run(command, **kwargs):
+    return subprocess.check_call(command, **kwargs)
+
+
 class FideliusException(Exception):
     pass
 
@@ -21,69 +25,30 @@ class Secret:
     encrypted: pathlib.Path = attr.ib()
     decrypted: pathlib.Path = attr.ib()
 
-    suffixes = {
-        '.asc': None,
-        '.gpg': None,
-    }
-
     def __attrs_post_init__(self):
-        if self.encrypted.suffix not in self.suffixes.keys():
+        if self.encrypted.suffix not in ('.asc', '.gpg'):
             raise FideliusException(
                 f"I don't know how to decrypt {self.encrypted.name}")
 
-    def decrypt(self, verbose: bool):
-        """Run an appropriate decryption method on the encrypted file."""
-        if self.encrypted.suffix == '.gpg':
-            return self.run(self.decrypt_gpg(), verbose=verbose)
-        elif self.encrypted.suffix == '.asc':
-            return self.run(self.decrypt_gpg_armoured(), verbose=verbose)
-
-        raise NotImplementedError
-
-    def decrypt_gpg(self):
-        return (
-            'gpg',
-            '--yes',
-            '--output', str(self.decrypted),
-            '--decrypt', str(self.encrypted),
-        )
-
-    def decrypt_gpg_armoured(self):
-        return (
-            'gpg',
-            '--yes',
-            '--armour',
-            '--output', str(self.decrypted),
-            '--decrypt', str(self.encrypted),
-        )
-
-    @staticmethod
-    def run(command: typing.Sequence[str],
-            verbose: bool,
-            **kwargs) -> subprocess.CompletedProcess:
-        result = subprocess.run(
-            command,
-            encoding='utf-8',
-            stdout=(None if verbose else subprocess.PIPE),
-            stderr=(None if verbose else subprocess.PIPE),
-            **kwargs)
-
-        if result.returncode != 0:
-            raise subprocess.CalledProcessError(
-                result.returncode,
-                command,
-                output=result.stdout,
-                stderr=result.stderr)
-
-        return result
+    @property
+    def armour(self):
+        return self.encrypted.suffix == '.asc'
 
 
 @attr.s(frozen=True)
 class SecretKeeper:
+    gpg_verbose: bool = attr.ib()
     secrets: typing.Sequence[Secret] = attr.ib()
 
     def __iter__(self):
         return iter(self.secrets)
+
+    def __getitem__(self, item: pathlib.Path):
+        return self.secrets_map[item.resolve()]
+
+    @property
+    def secrets_map(self):
+        return {s.encrypted.resolve(): s for s in self.secrets}
 
     def check_gitignore(self):
         decrypted = set((str(secret.decrypted) for secret in self.secrets))
@@ -102,6 +67,33 @@ class SecretKeeper:
             raise FideliusException(
                 f"Encrypted file(s) not excluded by .gitignore: "
                 f"{', '.join(sorted(included))}")
+
+    def decrypt(self, secret: Secret):
+        """Run an appropriate decryption method on the encrypted file."""
+        return self._run(
+            ['--output', str(secret.decrypted),
+             '--decrypt', str(secret.encrypted)],
+            armour=secret.armour)
+
+    def read(self, secret: Secret):
+        return self._run(
+            ['--decrypt', str(secret.encrypted)],
+            armour=secret.armour).stdout
+
+    def _run(self, arguments: typing.Sequence[str], armour: bool, **kwargs):
+        command = ['gpg', '--yes']
+
+        if armour:
+            command += ['--armour']
+
+        command += arguments
+
+        return subprocess.Popen(
+            command,
+            encoding='utf-8',
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if not self.gpg_verbose else None,
+            **kwargs)
 
 
 @attr.s(frozen=True)
@@ -163,5 +155,5 @@ class Fidelius:
             to_dir: pathlib.Path) -> pathlib.Path:
         return to_dir / path.relative_to(from_dir)
 
-    def cast(self) -> SecretKeeper:
-        return SecretKeeper(list(self))
+    def cast(self) -> typing.Sequence[Secret]:
+        return list(self)

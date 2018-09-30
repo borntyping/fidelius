@@ -2,8 +2,9 @@ import functools
 import pathlib
 
 import click
+import click._termui_impl
 
-from fidelius.secrets import Fidelius, Secret, SecretKeeper
+from fidelius.secrets import (Fidelius, Secret, SecretKeeper)
 from fidelius.utils import find_git_directory
 
 
@@ -27,77 +28,94 @@ def dec(secret: Secret) -> str:
     return click.style(rel(secret.decrypted), fg='red')
 
 
-def secrets(func):
-    """Run a CLI command once for each Secret in a SecretKeeper."""
-
-    @click.pass_obj
-    @functools.wraps(func)
-    def wrapper(sk: SecretKeeper, **kwargs):
-        for secret in sk:
-            func(secret, **kwargs)
-
-    return wrapper
-
-
-def click_convert_path(_ctx, _param, value) -> pathlib.Path:
-    return pathlib.Path(value)
+class PathType(click.Path):
+    def convert(self, value, param, ctx):
+        return pathlib.Path(super().convert(value, param, ctx))
 
 
 @click.group(help=__doc__)
 @click.option(
     '-d', '--directory',
-    type=click.Path(
+    type=PathType(
         file_okay=False,
         dir_okay=True,
         exists=True),
-    callback=click_convert_path,
-    default=find_git_directory)
+    default=find_git_directory,
+    help="Defaults to the current git repository.")
 @click.option(
-    '-g',
-    '--no-check-gitignore/--check-gitignore',
+    '-G',
+    '--no-gitignore',
     default=False,
-    is_flag=True)
+    is_flag=True,
+    help="Don't check decrypted files are ignored by git.")
+@click.option(
+    '-v', '--verbose', 'gpg_verbose',
+    default=False,
+    is_flag=True,
+    help="Display GPG's normal STDERR output.")
 @click.pass_context
-def main(ctx, directory: pathlib.Path, no_check_gitignore: bool):
-    ctx.obj: SecretKeeper = Fidelius(directory).cast()
+def main(
+        ctx,
+        directory: pathlib.Path,
+        gpg_verbose: bool,
+        no_gitignore: bool,
+):
+    ctx.obj = SecretKeeper(
+        secrets=Fidelius(directory).cast(),
+        gpg_verbose=gpg_verbose)
 
-    if no_check_gitignore:
+    if not no_gitignore:
         ctx.obj.check_gitignore()
 
 
 @main.command()
-@secrets
-def ls(secret: Secret):
-    click.echo(f"{enc(secret)} -> {dec(secret)}")
+@click.pass_obj
+def ls(sk: SecretKeeper):
+    for secret in sk:
+        click.echo(f"{enc(secret)} -> {dec(secret)}")
 
 
 @main.command()
-@secrets
-def ls_encrypted(secret: Secret):
-    click.echo(enc(secret))
+@click.pass_obj
+def ls_encrypted(sk: SecretKeeper):
+    for secret in sk:
+        click.echo(enc(secret))
 
 
 @main.command()
-@secrets
-def ls_decrypted(secret: Secret):
-    click.echo(dec(secret))
+@click.pass_obj
+def ls_decrypted(sk: SecretKeeper):
+    for secret in sk:
+        click.echo(dec(secret))
 
 
 @main.command()
-@secrets
-def clean(secret: Secret):
-    if secret.decrypted.exists():
-        click.echo(f"Deleting {dec(secret)}")
-        secret.decrypted.unlink()
+@click.pass_obj
+def decrypt(sk: SecretKeeper):
+    for secret in sk:
+        click.echo(f"Decrypting {enc(secret)} to {dec(secret)}")
+        sk.decrypt(secret)
 
 
 @main.command()
-@click.option(
-    '-v', '--verbose/--no-verbose',
-    default=False,
-    is_flag=True,
-    help="Display GPG output.")
-@secrets
-def decrypt(secret: Secret, verbose: bool):
-    click.echo(f"Decrypting {enc(secret)} to {dec(secret)}")
-    secret.decrypt(verbose=verbose)
+@click.pass_obj
+def clean(sk: SecretKeeper):
+    for secret in sk:
+        if secret.decrypted.exists():
+            click.echo(f"Deleting {dec(secret)}")
+            secret.decrypted.unlink()
+
+
+@main.command()
+@click.argument(
+    'encrypted_secret',
+    type=PathType(exists=True),
+    required=True)
+@click.pass_obj
+def view(sk: SecretKeeper, encrypted_secret: pathlib.Path):
+    """View the decrypted text of an encrypted file in your $PAGER."""
+    gpg_stdout = sk.read(sk[encrypted_secret])
+
+    # Use the `click._termui_impl.pager()` method directly because
+    # `click.echo_via_pager` appends a newline.
+    click._termui_impl.pager(gpg_stdout)
