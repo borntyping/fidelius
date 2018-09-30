@@ -88,7 +88,7 @@ class SecretKeeper:
 class Fidelius:
     """Search for secrets to encrypt/decrypt in a directory."""
 
-    git: pathlib.Path = attr.ib(factory=find_git_directory)
+    git: pathlib.Path = attr.ib()
 
     def __attrs_post_init__(self):
         log.info(

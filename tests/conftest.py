@@ -13,7 +13,7 @@ ROOT = pathlib.Path(__file__).parent
 def invoke():
     def invoke_func(arguments):
         runner = click.testing.CliRunner()
-        result = runner.invoke(fidelius.cli.main, arguments)
+        result = runner.invoke(fidelius.cli.main, ['-d', ROOT, *arguments])
         assert result.exit_code == 0, f"Command failed: \n\n{result.output}"
         return result.output.splitlines()
 

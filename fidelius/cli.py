@@ -4,40 +4,62 @@ import pathlib
 import click
 
 from fidelius.secrets import Fidelius, Secret, SecretKeeper
+from fidelius.utils import find_git_directory
 
 
 @functools.lru_cache()
 def rel(path: pathlib.Path) -> str:
+    """
+    Convert a path to a relative Path.
+
+    Returns a string as these should only be used for presentation.
+    """
     return str(path.relative_to(pathlib.Path.cwd()))
 
 
 def enc(secret: Secret) -> str:
+    """Style a path to a encrypted file."""
     return click.style(rel(secret.encrypted), fg='green')
 
 
 def dec(secret: Secret) -> str:
+    """Style a path to a decrypted file."""
     return click.style(rel(secret.decrypted), fg='red')
 
 
 def secrets(func):
+    """Run a CLI command once for each Secret in a SecretKeeper."""
+
     @click.pass_obj
     @functools.wraps(func)
-    def wrapper(sk: SecretKeeper):
+    def wrapper(sk: SecretKeeper, **kwargs):
         for secret in sk:
-            func(secret)
+            func(secret, **kwargs)
 
     return wrapper
 
 
+def click_convert_path(_ctx, _param, value) -> pathlib.Path:
+    return pathlib.Path(value)
+
+
 @click.group(help=__doc__)
+@click.option(
+    '-d', '--directory',
+    type=click.Path(
+        file_okay=False,
+        dir_okay=True,
+        exists=True),
+    callback=click_convert_path,
+    default=find_git_directory)
 @click.option(
     '-g',
     '--no-check-gitignore/--check-gitignore',
     default=False,
     is_flag=True)
 @click.pass_context
-def main(ctx, no_check_gitignore: bool):
-    ctx.obj: SecretKeeper = Fidelius().cast()
+def main(ctx, directory: pathlib.Path, no_check_gitignore: bool):
+    ctx.obj: SecretKeeper = Fidelius(directory).cast()
 
     if no_check_gitignore:
         ctx.obj.check_gitignore()
