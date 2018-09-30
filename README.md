@@ -37,3 +37,13 @@ examples/directory/example-2.decrypted.json
 examples/directory.encrypted/example-3.encrypted.json.gpg
 examples/directory/example-3.decrypted.json
 ```
+
+License
+-------
+
+Licensed under the [MIT License](./README.md).
+
+Author
+------
+
+Written by [Sam Clements](https://github.com/borntyping).
