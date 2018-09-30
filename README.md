@@ -3,8 +3,8 @@ Fidelius
 
 Fidelius is a tool for managing GPG encrypted secrets in a git repository.
 
-Files named `file.encrypted.ext.asc` are decrypted to `file.decrypted.ext`, and
-files in a directory named `directory.encrypted/file.ext.asc` are decrypted to
+* Paths like `file.encrypted.ext.asc` are decrypted to `file.decrypted.ext`,
+* Paths like `directory.encrypted/file.ext.asc` are decrypted to
 `directory/file.ext`.
 
 These rules ensure decrypted files have the correct extension for their
