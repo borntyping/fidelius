@@ -45,6 +45,12 @@ def main(ctx, no_check_gitignore: bool):
 
 @main.command()
 @secrets
+def ls(secret: Secret):
+    click.echo(f"{enc(secret)} -> {dec(secret)}")
+
+
+@main.command()
+@secrets
 def ls_encrypted(secret: Secret):
     click.echo(enc(secret))
 
@@ -57,8 +63,10 @@ def ls_decrypted(secret: Secret):
 
 @main.command()
 @secrets
-def list_(secret: Secret):
-    click.echo(f"File {enc(secret)} will be decrypted to {dec(secret)}")
+def clean(secret: Secret):
+    if secret.decrypted.exists():
+        click.echo(f"Deleting {dec(secret)}")
+        secret.decrypted.unlink()
 
 
 @main.command()
