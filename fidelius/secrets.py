@@ -5,7 +5,7 @@ import typing
 
 import attr
 
-from .utils import find_git_directory, in_directories, run
+from .utils import in_directories
 
 log = logging.getLogger(__name__)
 
@@ -31,31 +31,51 @@ class Secret:
             raise FideliusException(
                 f"I don't know how to decrypt {self.encrypted.name}")
 
-    def decrypt(self):
+    def decrypt(self, verbose: bool):
         """Run an appropriate decryption method on the encrypted file."""
         if self.encrypted.suffix == '.gpg':
-            return self.decrypt_gpg_armoured()
+            return self.run(self.decrypt_gpg(), verbose=verbose)
         elif self.encrypted.suffix == '.asc':
-            return self.decrypt_gpg_armoured()
+            return self.run(self.decrypt_gpg_armoured(), verbose=verbose)
 
         raise NotImplementedError
 
     def decrypt_gpg(self):
-        return run((
+        return (
             'gpg',
             '--yes',
             '--output', str(self.decrypted),
             '--decrypt', str(self.encrypted),
-        ))
+        )
 
     def decrypt_gpg_armoured(self):
-        return run((
+        return (
             'gpg',
             '--yes',
             '--armour',
             '--output', str(self.decrypted),
             '--decrypt', str(self.encrypted),
-        ))
+        )
+
+    @staticmethod
+    def run(command: typing.Sequence[str],
+            verbose: bool,
+            **kwargs) -> subprocess.CompletedProcess:
+        result = subprocess.run(
+            command,
+            encoding='utf-8',
+            stdout=(None if verbose else subprocess.PIPE),
+            stderr=(None if verbose else subprocess.PIPE),
+            **kwargs)
+
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                command,
+                output=result.stdout,
+                stderr=result.stderr)
+
+        return result
 
 
 @attr.s(frozen=True)

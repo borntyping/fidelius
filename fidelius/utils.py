@@ -1,4 +1,3 @@
-import subprocess
 import typing
 from pathlib import Path
 
@@ -32,16 +31,3 @@ def in_directories(
     return any(in_directory(path, directory) for directory in directories)
 
 
-def run(
-        command: typing.Sequence[str],
-        **kwargs) -> subprocess.CompletedProcess:
-    result = subprocess.run(command, encoding='utf-8', **kwargs)
-
-    if result.returncode != 0:
-        raise subprocess.CalledProcessError(
-            result.returncode,
-            command,
-            output=result.stdout,
-            stderr=result.stderr)
-
-    return result

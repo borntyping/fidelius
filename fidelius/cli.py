@@ -92,7 +92,12 @@ def clean(secret: Secret):
 
 
 @main.command()
+@click.option(
+    '-v', '--verbose/--no-verbose',
+    default=False,
+    is_flag=True,
+    help="Display GPG output.")
 @secrets
-def decrypt(secret: Secret):
+def decrypt(secret: Secret, verbose: bool):
     click.echo(f"Decrypting {enc(secret)} to {dec(secret)}")
-    secret.decrypt()
+    secret.decrypt(verbose=verbose)
