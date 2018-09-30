@@ -1,12 +1,4 @@
-import click
-
-from . import __doc__
-
-
-@click.group(help=__doc__)
-def main():
-    pass
-
+from fidelius.cli import main
 
 if __name__ == '__main__':
-    main(prog_name='fidelius')
+    main(prog_name='fidelius', color=True)
