@@ -3,11 +3,18 @@ Fidelius
 
 Fidelius is a tool for managing GPG encrypted secrets in a git repository.
 
-It uses a couple of rules to rename files when they are decrypted so that they
-have the correct extension and placed in the directory structure you want.
+Files named `file.encrypted.ext.asc` are decrypted to `file.decrypted.ext`, and
+files in a directory named `directory.encrypted/file.ext.asc` are decrypted to
+`directory/file.ext`.
 
-It's partially useful when working with tools like [Helm] which will crash if
-they encounter encrypted files in their directory structure.
+These rules ensure decrypted files have the correct extension for their
+contents, are easy to exclude from version control with `.gitignore` rule 
+(`fidelius` will even check they are excluded!) and that decrypted files are
+placed where you want in your directory structure. 
+
+The last of these is partially useful when working with tools like [Helm] which
+may crash if they encounter encrypted files in their directory structure, so it
+can be useful to keep the encrypted files in a separate directory.
 
 Rules
 -----
@@ -17,10 +24,8 @@ are decrypted into the same directory. The `.asc` or `.gpg` suffix is removed
 and `.encrypted` is replaced with `.decrypted`.
 
 ```
-examples/example-1.encrypted.json.asc
-examples/example-1.decrypted.json
+one.encrypted.json.asc -> one.decrypted.json
 ```
-
 
 All files with a `.asc` or `.gpg` suffix in a directory named `%.encrypted` are
 decrypted into `%`, keeping the same relative path. Filenames have the `.asc` or
@@ -29,21 +34,20 @@ files without `.encrypted` in their name have a `.decrypted` suffix added before
 the last suffix in the filename.
 
 ```
-examples/directory.encrypted/example-2.json.gpg
-examples/directory/example-2.decrypted.json
-```
-
-```
-examples/directory.encrypted/example-3.encrypted.json.gpg
-examples/directory/example-3.decrypted.json
+directory.encrypted/two.json.gpg -> directory/two.decrypted.json
+directory.encrypted/three.encrypted.json.gpg -> directory/three.decrypted.json
 ```
 
 License
 -------
 
-Licensed under the [MIT License](./README.md).
+Licensed under the [MIT License].
 
 Author
 ------
 
-Written by [Sam Clements](https://github.com/borntyping).
+Written by [Sam Clements].
+
+[Helm]: https://helm.sh/
+[MIT License]: ./README.md
+[Sam Clements]: https://github.com/borntyping
