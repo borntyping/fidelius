@@ -13,5 +13,4 @@ It will also check that decrypted paths are excluded by a .gitignore file.
 """
 
 __author__ = 'Sam Clements'
-__author_email__ = 'sam@borntyping.co.uk'
-__version__ = '1.0.0'
+__version__ = '1.0.2'

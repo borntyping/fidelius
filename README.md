@@ -10,7 +10,7 @@ plaintext is written.
 
 * Paths like `file.encrypted.ext.asc` are decrypted to `file.decrypted.ext`,
 * Paths like `directory.encrypted/file.ext.asc` are decrypted to
-`directory/file.ext`.
+  `directory/file.ext`.
 
 These rules ensure decrypted files have the correct extension for their
 contents, are easy to exclude from version control with `.gitignore` rule 
