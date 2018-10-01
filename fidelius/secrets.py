@@ -5,7 +5,7 @@ import typing
 
 import attr
 
-from .incantations import Incantation
+from .incantations import Incantation, NameIncantation
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,6 @@ class FideliusException(Exception):
 
 @attr.s(frozen=True)
 class GPG:
-    recipients: typing.Tuple[str, ...] = attr.ib(factory=tuple)
     verbose: bool = attr.ib(default=False)
 
     def decrypt(
@@ -137,6 +136,12 @@ class SecretKeeper:
 
 
 class Fidelius:
+    @classmethod
+    def quick(cls, directory: pathlib.Path):
+        return cls.cast(
+            incantation=NameIncantation(directory),
+            gpg=GPG())
+
     @staticmethod
     def cast(incantation: Incantation, gpg: GPG) -> SecretKeeper:
         return SecretKeeper(secrets={
