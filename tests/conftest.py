@@ -1,4 +1,5 @@
 import pathlib
+import typing
 
 import attr
 import click.testing
@@ -11,10 +12,13 @@ ROOT = pathlib.Path(__file__).parent
 
 @pytest.fixture()
 def invoke():
-    def invoke_func(arguments):
+    def invoke_func(arguments: typing.Sequence[str]):
+        assert all(isinstance(arg, str) for arg in arguments)
         runner = click.testing.CliRunner()
         result = runner.invoke(fidelius.cli.main, ['-d', ROOT, *arguments])
-        assert result.exit_code == 0, f"Command failed: \n\n{result.output}"
+        if result.exit_code != 0:
+            message = "Command fidelius {' '.join(arguments)} failed"
+            raise Exception(message) from result.exception
         return result.output.splitlines()
 
     return invoke_func

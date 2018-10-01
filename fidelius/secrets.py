@@ -33,7 +33,7 @@ class GPG:
         return process.stdout.read()
 
     def stream(self, path: pathlib.Path, armour: bool):
-        return self._decrypt(path, armour)
+        return self._decrypt(path, armour).stdout
 
     def _decrypt(self, path: pathlib.Path, armour: bool) -> subprocess.Popen:
         return self._run(['--decrypt', str(path)], armour=armour)

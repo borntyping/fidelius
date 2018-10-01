@@ -1,4 +1,5 @@
 def test_view(invoke, secret):
-    decrypted = invoke(['view', secret.encrypted])
+    invoke(['decrypt'])
+    decrypted = invoke(['view', str(secret.encrypted)])
     plaintext = secret.decrypted.read_text().splitlines()
     assert decrypted == plaintext
