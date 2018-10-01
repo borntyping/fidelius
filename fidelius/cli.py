@@ -1,11 +1,13 @@
 import functools
 import pathlib
+import typing
 
 import click
 import click._termui_impl
 
 from fidelius.incantations import NameIncantation
-from fidelius.secrets import SecretKeeper, GPG, Secret, Fidelius
+from fidelius.secrets import (
+    EncryptableSecret, Fidelius, GPG, Secret, SecretKeeper)
 from fidelius.utils import find_git_directory
 
 
@@ -53,9 +55,9 @@ def main(
         ctx,
         directory: pathlib.Path,
         gpg_verbose: bool):
-    ctx.obj: SecretKeeper = Fidelius.cast(
-        incantation=NameIncantation(directory),
-        gpg=GPG(verbose=gpg_verbose))
+    incantation = NameIncantation(directory)
+    gpg = GPG(verbose=gpg_verbose)
+    ctx.obj: SecretKeeper = Fidelius.cast(incantation=incantation, gpg=gpg)
 
 
 @main.command()
@@ -128,11 +130,37 @@ def view(sk: SecretKeeper, encrypted_secret: pathlib.Path):
 
 
 @main.command()
+@click.option(
+    '-r', '--recipient', 'recipients',
+    metavar='ID',
+    envvar='FIDELIUS_RECIPIENTS',
+    multiple=True,
+    type=click.STRING,
+    help="Forwarded directly to gpg --encrypt.")
 @click.argument(
-    'encrypted_secret',
-    type=PathType(exists=True),
+    'path',
+    type=PathType(),
     required=True)
-@click.pass_obj
-def edit(sk: SecretKeeper, encrypted_secret: pathlib.Path):
-    """Edit an encrypted file. [WIP]"""
-    click.edit(sk[encrypted_secret].contents())
+@click.pass_context
+def edit(
+        ctx,
+        path: pathlib.Path,
+        recipients: typing.Iterable[str]):
+    """
+    Edit an encrypted file.
+
+    The $FIDELIUS_RECIPIENTS environment variable can be used to set a comma
+    separated list of recipients GPG will encrypt the new contents for.
+    """
+    secret = ctx.obj.get(path, default=EncryptableSecret(path))
+
+    text = click.edit(
+        text=secret.contents(),
+        extension=secret.contents_suffix())
+
+    if not text:
+        ctx.fail("Aborting as no changes were made")
+
+    secret.write(text)
+
+    path.write_text(ctx.obj.gpg.encrypt(text, recipients))

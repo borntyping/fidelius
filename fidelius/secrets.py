@@ -16,6 +16,7 @@ class FideliusException(Exception):
 
 @attr.s(frozen=True)
 class GPG:
+    recipients: typing.Tuple[str, ...] = attr.ib(factory=tuple)
     verbose: bool = attr.ib(default=False)
 
     def decrypt(
@@ -43,28 +44,40 @@ class GPG:
             arguments: typing.Sequence[str],
             armour: bool,
             **kwargs) -> subprocess.Popen:
-        command = ['gpg', '--yes']
-
-        if armour:
-            command += ['--armour']
-
-        command += arguments
-
         return subprocess.Popen(
-            command,
+            self._command(*arguments, armour=armour),
             encoding='utf-8',
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE if not self.verbose else None,
             **kwargs)
 
+    @staticmethod
+    def _command(*arguments: str, armour: bool):
+        command = ['gpg', '--yes']
+        if armour:
+            command += ['--armour']
+        command += arguments
+        return command
+
+    def encrypt(
+            self,
+            path: pathlib.Path,
+            text: str,
+            armour: bool,
+            recipients):
+        arguments = []
+        for recipient in recipients:
+            arguments += ['--recipient', recipient]
+        arguments += ['--encrypt', str(path)]
+
+        subprocess.check_call(
+            self._command(arguments, armour=armour),
+            input=text)
+
 
 @attr.s(frozen=True, kw_only=True)
 class Secret:
-    """An encrypted file we plan to decrypt."""
-
     encrypted: pathlib.Path = attr.ib()
-    decrypted: pathlib.Path = attr.ib()
-
     gpg: GPG = attr.ib()
 
     def __attrs_post_init__(self):
@@ -76,6 +89,38 @@ class Secret:
     def armour(self):
         return self.encrypted.suffix == '.asc'
 
+    def contents(self) -> typing.Optional[str]:
+        raise NotImplementedError
+
+    def contents_suffix(self) -> str:
+        raise NotImplementedError
+
+    def write(self, text: str, recipients) -> None:
+        self.gpg.encrypt(
+            path=self.encrypted,
+            text=text,
+            armour=self.armour,
+            recipients=recipients)
+
+
+@attr.s(frozen=True, kw_only=True)
+class EncryptableSecret(Secret):
+    encrypted: pathlib.Path = attr.ib()
+    gpg: GPG = attr.ib()
+
+    def contents(self):
+        return None
+
+    def contents_suffix(self):
+        return self.encrypted.suffixes[-2]
+
+
+@attr.s(frozen=True, kw_only=True)
+class DecryptableSecret(Secret):
+    encrypted: pathlib.Path = attr.ib()
+    decrypted: pathlib.Path = attr.ib()
+    gpg: GPG = attr.ib()
+
     def decrypt(self):
         return self.gpg.decrypt(self.encrypted, self.decrypted, self.armour)
 
@@ -85,24 +130,25 @@ class Secret:
     def contents(self):
         return self.gpg.contents(self.encrypted, self.armour)
 
+    def contents_suffix(self):
+        return self.decrypted.suffix
+
+    def write(self, text: str) -> None:
+        pass
+
 
 @attr.s(frozen=True)
 class SecretKeeper:
     secrets: typing.Dict[pathlib.Path, Secret] = attr.ib()
-
-    @classmethod
-    def cast(cls, incantation: Incantation, gpg: GPG):
-        return cls(secrets={secret.encrypted.resolve(): Secret(
-            encrypted=secret.encrypted.resolve(),
-            decrypted=secret.decrypted.resolve(),
-            gpg=gpg
-        ) for secret in incantation})
 
     def __attrs_post_init__(self):
         self.run_gitignore_check()
 
     def __getitem__(self, item: pathlib.Path):
         return self.secrets[item.resolve()]
+
+    def get(self, item: pathlib.Path, default: Secret) -> Secret:
+        return self.secrets.get(item.resolve(), default)
 
     def __iter__(self):
         return iter(sorted(self.secrets.values(), key=lambda s: s.encrypted))
@@ -126,7 +172,7 @@ class Fidelius:
     @staticmethod
     def cast(incantation: Incantation, gpg: GPG) -> SecretKeeper:
         return SecretKeeper(secrets={
-            encrypted.resolve(): Secret(
+            encrypted.resolve(): DecryptableSecret(
                 encrypted=encrypted.resolve(),
                 decrypted=decrypted.resolve(),
                 gpg=gpg
