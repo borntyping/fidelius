@@ -199,9 +199,9 @@ def re_encrypt(
     if not secret.decrypted.exists():
         raise FideliusException(f"Secret has not been decrypted")
 
-    click.edit(filename=secret.decrypted)
     if secret.plaintext() == secret.contents(sk.gpg):
         raise click.ClickException("No changes were made to the file")
+
     secret.re_encrypt(sk.gpg, recipients=recipients)
 
 
