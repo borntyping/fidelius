@@ -36,9 +36,10 @@ This will install `fidelius` executable. Run `fidelius --help` for full usage
 information. 
 
 ```bash
-fidelius edit -r fidelius@example.invalid example.encrypted.txt.asc
-fidelius view example.encrypted.txt.asc
-fidelius decrypt example.encrypted.txt.asc && cat example.decrypted.txt
+fidelius new -r 'fidelius@example.invalid' 'example.encrypted.txt.asc'
+fidelius edit -r 'fidelius@example.invalid' 'example.encrypted.txt.asc'
+fidelius view 'example.encrypted.txt.asc'
+fidelius decrypt 'example.encrypted.txt.asc' && cat 'example.decrypted.txt'
 ```
 
 Rules

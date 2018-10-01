@@ -41,23 +41,23 @@ class GPG:
 
     def _run(
             self,
-            arguments: typing.Sequence[str],
+            args: typing.Sequence[str],
             armour: bool,
             **kwargs) -> subprocess.Popen:
         return subprocess.Popen(
-            self._command(*arguments, armour=armour),
+            self._gpg(args, armour),
             encoding='utf-8',
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE if not self.verbose else None,
             **kwargs)
 
     @staticmethod
-    def _command(*arguments: str, armour: bool):
+    def _gpg(args: typing.Sequence[str], armour: bool) -> typing.Sequence[str]:
         command = ['gpg', '--yes']
         if armour:
             command += ['--armour']
-        command += arguments
-        return command
+        command += args
+        return tuple(command)
 
     def encrypt(
             self,
@@ -65,20 +65,18 @@ class GPG:
             text: str,
             armour: bool,
             recipients):
-        arguments = []
+        args = []
         for recipient in recipients:
-            arguments += ['--recipient', recipient]
-        arguments += ['--encrypt', str(path)]
+            args += ['--recipient', recipient]
+        args += ['--output', str(path), '--encrypt']
 
-        subprocess.check_call(
-            self._command(arguments, armour=armour),
-            input=text)
+        subprocess.run(self._gpg(args, armour), input=text, encoding='utf-8')
 
 
 @attr.s(frozen=True, kw_only=True)
 class Secret:
     encrypted: pathlib.Path = attr.ib()
-    gpg: GPG = attr.ib()
+    decrypted: pathlib.Path = attr.ib()
 
     def __attrs_post_init__(self):
         if self.encrypted.suffix not in ('.asc', '.gpg'):
@@ -89,57 +87,27 @@ class Secret:
     def armour(self):
         return self.encrypted.suffix == '.asc'
 
-    def contents(self) -> typing.Optional[str]:
-        raise NotImplementedError
+    def decrypt(self, gpg: GPG):
+        return gpg.decrypt(self.encrypted, self.decrypted, self.armour)
 
-    def contents_suffix(self) -> str:
-        raise NotImplementedError
+    def stream(self, gpg: GPG):
+        return gpg.stream(self.encrypted, self.armour)
 
-    def write(self, text: str, recipients) -> None:
-        self.gpg.encrypt(
+    def contents(self, gpg: GPG):
+        return gpg.contents(self.encrypted, self.armour)
+
+    def write(self, gpg: GPG, text: str, recipients) -> None:
+        gpg.encrypt(
             path=self.encrypted,
             text=text,
             armour=self.armour,
             recipients=recipients)
 
 
-@attr.s(frozen=True, kw_only=True)
-class EncryptableSecret(Secret):
-    encrypted: pathlib.Path = attr.ib()
-    gpg: GPG = attr.ib()
-
-    def contents(self):
-        return None
-
-    def contents_suffix(self):
-        return self.encrypted.suffixes[-2]
-
-
-@attr.s(frozen=True, kw_only=True)
-class DecryptableSecret(Secret):
-    encrypted: pathlib.Path = attr.ib()
-    decrypted: pathlib.Path = attr.ib()
-    gpg: GPG = attr.ib()
-
-    def decrypt(self):
-        return self.gpg.decrypt(self.encrypted, self.decrypted, self.armour)
-
-    def stream(self):
-        return self.gpg.stream(self.encrypted, self.armour)
-
-    def contents(self):
-        return self.gpg.contents(self.encrypted, self.armour)
-
-    def contents_suffix(self):
-        return self.decrypted.suffix
-
-    def write(self, text: str) -> None:
-        pass
-
-
 @attr.s(frozen=True)
 class SecretKeeper:
     secrets: typing.Dict[pathlib.Path, Secret] = attr.ib()
+    gpg: GPG = attr.ib()
 
     def __attrs_post_init__(self):
         self.run_gitignore_check()
@@ -172,8 +140,7 @@ class Fidelius:
     @staticmethod
     def cast(incantation: Incantation, gpg: GPG) -> SecretKeeper:
         return SecretKeeper(secrets={
-            encrypted.resolve(): DecryptableSecret(
+            encrypted.resolve(): Secret(
                 encrypted=encrypted.resolve(),
                 decrypted=decrypted.resolve(),
-                gpg=gpg
-            ) for encrypted, decrypted in incantation})
+            ) for encrypted, decrypted in incantation}, gpg=gpg)
