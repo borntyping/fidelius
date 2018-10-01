@@ -132,6 +132,9 @@ class SecretKeeper:
     def __getitem__(self, item: pathlib.Path):
         return self.secrets[item.resolve()]
 
+    def __contains__(self, item: pathlib.Path):
+        return item.resolve() in self.secrets.keys()
+
     def get(self, item: pathlib.Path, default: Secret) -> Secret:
         return self.secrets.get(item.resolve(), default)
 
