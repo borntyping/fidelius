@@ -37,6 +37,7 @@ def write_flags(func):
         metavar='ID',
         envvar='FIDELIUS_RECIPIENTS',
         multiple=True,
+        required=True,
         type=click.STRING,
         help="Forwarded directly to gpg --encrypt.")
 
