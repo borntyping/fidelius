@@ -185,10 +185,13 @@ def edit(
 
 @main.command()
 @write_flags
+@click.argument(
+    'plaintext', type=PathType(exists=True), default=None, required=False)
 @click.pass_obj
 def new(
         sk: SecretKeeper,
         path: pathlib.Path,
+        plaintext: pathlib.Path,
         recipients: typing.Iterable[str]):
     """
     Create a new encrypted file.
@@ -208,13 +211,18 @@ def new(
             "File names should be in the form '<name>.<ext>.<asc|gpg>' or "
             "'<name>.encrypted.<ext>.<asc|gpg>'.")
 
-    text = click.edit(extension=path.suffixes[-2])
-
-    if not text:
-        raise click.ClickException("New file is empty")
-
-    sk.gpg.encrypt(
-        path=path,
-        text=text,
-        armour=(path.suffix == '.asc'),
-        recipients=recipients)
+    if plaintext:
+        sk.gpg.encrypt_file(
+            output=path,
+            encrypt=plaintext,
+            armour=(path.suffix == '.asc'),
+            recipients=recipients)
+    else:
+        text = click.edit(extension=path.suffixes[-2])
+        if not text:
+            raise click.ClickException("New file is empty")
+        sk.gpg.encrypt_text(
+            path=path,
+            text=text,
+            armour=(path.suffix == '.asc'),
+            recipients=recipients)

@@ -33,7 +33,7 @@ class GPG:
                 raise FideliusException(
                     f"Directory {decrypted.parent} does not exist")
 
-        subprocess.check_call(
+        subprocess.run(
             self._gpg([
                 '--output', str(decrypted),
                 '--decrypt', str(encrypted)
@@ -65,7 +65,7 @@ class GPG:
         command += args
         return tuple(command)
 
-    def encrypt(
+    def encrypt_text(
             self,
             path: pathlib.Path,
             text: str,
@@ -75,8 +75,19 @@ class GPG:
         for recipient in recipients:
             args += ['--recipient', recipient]
         args += ['--output', str(path), '--encrypt']
+        subprocess.run(self._gpg(args, armour), encoding='utf-8', input=text)
 
-        subprocess.run(self._gpg(args, armour), input=text, encoding='utf-8')
+    def encrypt_file(
+            self,
+            output: pathlib.Path,
+            encrypt: pathlib.Path,
+            armour: bool,
+            recipients):
+        args = []
+        for recipient in recipients:
+            args += ['--recipient', recipient]
+        args += ['--output', str(output), '--encrypt', str(encrypt)]
+        subprocess.run(self._gpg(args, armour), encoding='utf-8')
 
 
 @attr.s(frozen=True, kw_only=True)
