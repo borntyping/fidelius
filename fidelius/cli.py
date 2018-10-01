@@ -157,7 +157,7 @@ def edit(
     """
     Edit an encrypted file.
 
-    The $FIDELIUS_RECIPIENTS environment variable can be used to set a comma
+    The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
     if path not in sk:
@@ -203,9 +203,12 @@ def new(
         {directory}.encrypted/{name}.encrypted.{ext}.{asc|gpg}
         {name}.encrypted.{ext}.{asc|gpg}
 
-    The $FIDELIUS_RECIPIENTS environment variable can be used to set a comma
+    The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
+
+    print(repr(recipients))
+
     if len(path.suffixes) < 2:
         raise click.ClickException(
             "File names should be in the form '<name>.<ext>.<asc|gpg>' or "
