@@ -31,8 +31,9 @@ class NameIncantation(Incantation):
         for enc_dir in directories:
             dec_dir = self.rename_directory(enc_dir)
             for enc_path in enc_dir.glob('**/*'):
-                yield (enc_path, self.rename(self.transpose(
-                    enc_path, from_dir=enc_dir, to_dir=dec_dir)))
+                if enc_path.is_file():
+                    yield (enc_path, self.rename(self.transpose(
+                        enc_path, from_dir=enc_dir, to_dir=dec_dir)))
 
         for enc_path in sorted(self.files('**/*.encrypted*')):
             if not in_directories(enc_path, directories):

@@ -72,7 +72,17 @@ class ExampleSecret:
         'dir-gpg-long',
         ROOT / 'files.encrypted/dir-gpg-long.encrypted.json.gpg',
         ROOT / 'files/dir-gpg-long.decrypted.json',
-    )
+    ),
+    ExampleSecret(
+        'subdir-asc',
+        ROOT / 'files.encrypted/subdirectory/subdir-asc.json.asc',
+        ROOT / 'files/subdirectory/subdir-asc.decrypted.json',
+    ),
+    ExampleSecret(
+        'subdir-gpg',
+        ROOT / 'files.encrypted/subdirectory/subdir-gpg.json.gpg',
+        ROOT / 'files/subdirectory/subdir-gpg.decrypted.json',
+    ),
 ], ids=str)
 def secret(request):
     return request.param

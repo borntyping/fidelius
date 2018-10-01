@@ -4,19 +4,21 @@ import subprocess
 import typing
 
 import attr
+import click
 
 from .incantations import Incantation, NameIncantation
 
 log = logging.getLogger(__name__)
 
 
-class FideliusException(Exception):
+class FideliusException(click.ClickException):
     pass
 
 
 @attr.s(frozen=True)
 class GPG:
     verbose: bool = attr.ib(default=False)
+    parents: bool = attr.ib(default=True)
 
     def decrypt(
             self,
@@ -24,8 +26,21 @@ class GPG:
             decrypted: pathlib.Path,
             armour: bool) -> None:
         """Run an appropriate decryption method on the encrypted file."""
-        self._run(['--output', str(decrypted),
-                   '--decrypt', str(encrypted)], armour=armour)
+        if not decrypted.parent.exists():
+            if self.parents:
+                decrypted.parent.mkdir()
+            else:
+                raise FideliusException(
+                    f"Directory {decrypted.parent} does not exist")
+
+        subprocess.check_call(
+            self._gpg([
+                '--output', str(decrypted),
+                '--decrypt', str(encrypted)
+            ], armour),
+            encoding='utf-8',
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if not self.verbose else None)
 
     def contents(self, path: pathlib.Path, armour: bool) -> str:
         process = self._decrypt(path, armour)
@@ -36,19 +51,11 @@ class GPG:
         return self._decrypt(path, armour).stdout
 
     def _decrypt(self, path: pathlib.Path, armour: bool) -> subprocess.Popen:
-        return self._run(['--decrypt', str(path)], armour=armour)
-
-    def _run(
-            self,
-            args: typing.Sequence[str],
-            armour: bool,
-            **kwargs) -> subprocess.Popen:
         return subprocess.Popen(
-            self._gpg(args, armour),
+            self._gpg(['--decrypt', str(path)], armour),
             encoding='utf-8',
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE if not self.verbose else None,
-            **kwargs)
+            stderr=subprocess.PIPE if not self.verbose else None)
 
     @staticmethod
     def _gpg(args: typing.Sequence[str], armour: bool) -> typing.Sequence[str]:
