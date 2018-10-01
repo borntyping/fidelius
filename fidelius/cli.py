@@ -159,10 +159,12 @@ def edit(
     The $FIDELIUS_RECIPIENTS environment variable can be used to set a comma
     separated list of recipients GPG will encrypt the new contents for.
     """
+    if path not in sk:
+        raise click.ClickException(f"No existing secret named {path}")
+
     secret = sk[path]
 
     old_text = secret.contents(sk.gpg)
-
     new_text = click.edit(
         text=old_text,
         extension=secret.decrypted.suffix)
@@ -188,11 +190,23 @@ def new(
         path: pathlib.Path,
         recipients: typing.Iterable[str]):
     """
-    Create an encrypted file.
+    Create a new encrypted file.
+
+    Paths should match one of the following forms:
+
+    \b
+        {directory}.encrypted/{name}.{ext}.{asc|gpg}
+        {directory}.encrypted/{name}.encrypted.{ext}.{asc|gpg}
+        {name}.encrypted.{ext}.{asc|gpg}
 
     The $FIDELIUS_RECIPIENTS environment variable can be used to set a comma
     separated list of recipients GPG will encrypt the new contents for.
     """
+    if len(path.suffixes) < 2:
+        raise click.ClickException(
+            "File names should be in the form '<name>.<ext>.<asc|gpg>' or "
+            "'<name>.encrypted.<ext>.<asc|gpg>'.")
+
     text = click.edit(extension=path.suffixes[-2])
 
     if not text:
