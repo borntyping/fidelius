@@ -24,9 +24,18 @@ can be useful to keep the encrypted files in a separate directory.
 Usage
 -----
 
+You'll need Python 3.7, [Pip] and GPG installed.
+
+You can then install `fidelius` via `pip`:
+
 ```bash
 pip install fidelius
+```
 
+This will install `fidelius` executable. Run `fidelius --help` for full usage
+information. 
+
+```bash
 fidelius edit -r fidelius@example.invalid example.encrypted.txt.asc
 fidelius view example.encrypted.txt.asc
 fidelius decrypt example.encrypted.txt.asc && cat example.decrypted.txt
@@ -76,6 +85,7 @@ Author
 
 Written by [Sam Clements].
 
+[Pip]: https://packaging.python.org/tutorials/installing-packages/
 [Helm]: https://helm.sh/
 [MIT License]: ./README.md
 [Sam Clements]: https://github.com/borntyping
