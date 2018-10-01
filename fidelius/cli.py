@@ -5,10 +5,11 @@ import typing
 import click
 import click._termui_impl
 
-from . import __doc__
 from fidelius.incantations import NameIncantation
-from fidelius.secrets import Fidelius, GPG, Secret, SecretKeeper
+from fidelius.secrets import (
+    Fidelius, FideliusException, GPG, Secret, SecretKeeper)
 from fidelius.utils import find_git_directory
+from . import __doc__
 
 
 @functools.lru_cache()
@@ -160,9 +161,6 @@ def edit(
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
-    if path not in sk:
-        raise click.ClickException(f"No existing secret named {path}")
-
     secret = sk[path]
 
     old_text = secret.contents(sk.gpg)
@@ -176,11 +174,35 @@ def edit(
     if new_text == old_text:
         raise click.ClickException("No changes were made to the file")
 
-    sk.gpg.encrypt(
+    sk.gpg.encrypt_text(
         path=secret.encrypted,
         text=new_text,
         armour=secret.armour,
         recipients=recipients)
+
+
+@main.command()
+@write_flags
+@click.pass_obj
+def re_encrypt(
+        sk: SecretKeeper,
+        path: pathlib.Path,
+        recipients: typing.Iterable[str]):
+    """
+    Re-encrypt a file using the decrypted plaintext.
+
+    The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
+    separated list of recipients GPG will encrypt the new contents for.
+    """
+    secret = sk[path]
+
+    if not secret.decrypted.exists():
+        raise FideliusException(f"Secret has not been decrypted")
+
+    click.edit(filename=secret.decrypted)
+    if secret.plaintext() == secret.contents(sk.gpg):
+        raise click.ClickException("No changes were made to the file")
+    secret.re_encrypt(sk.gpg, recipients=recipients)
 
 
 @main.command()

@@ -107,18 +107,21 @@ class Secret:
     def decrypt(self, gpg: GPG):
         return gpg.decrypt(self.encrypted, self.decrypted, self.armour)
 
+    def re_encrypt(self, gpg: GPG, **kwargs):
+        gpg.encrypt_file(
+            output=self.encrypted,
+            encrypt=self.decrypted,
+            armour=self.armour,
+            **kwargs)
+
     def stream(self, gpg: GPG):
         return gpg.stream(self.encrypted, self.armour)
 
     def contents(self, gpg: GPG):
         return gpg.contents(self.encrypted, self.armour)
 
-    def write(self, gpg: GPG, text: str, recipients) -> None:
-        gpg.encrypt(
-            path=self.encrypted,
-            text=text,
-            armour=self.armour,
-            recipients=recipients)
+    def plaintext(self):
+        return self.decrypted.read_text()
 
 
 @attr.s(frozen=True)
@@ -130,10 +133,10 @@ class SecretKeeper:
         self.run_gitignore_check()
 
     def __getitem__(self, item: pathlib.Path):
-        return self.secrets[item.resolve()]
+        if item.resolve() not in self.secrets.keys():
+            raise FideliusException(f"No secret named {item}")
 
-    def __contains__(self, item: pathlib.Path):
-        return item.resolve() in self.secrets.keys()
+        return self.secrets[item.resolve()]
 
     def get(self, item: pathlib.Path, default: Secret) -> Secret:
         return self.secrets.get(item.resolve(), default)
