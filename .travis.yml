@@ -3,5 +3,6 @@ python:
   - 3.7-dev
 install:
   - pip install pytest .
+  - gpg --import tests/private.asc
 script:
   - pytest
