@@ -2,6 +2,7 @@
 Each Incantation can be converted to a list of secrets.
 """
 
+import logging
 import pathlib
 import typing
 
@@ -9,6 +10,8 @@ import attr
 
 from .secrets import Secret
 from .utils import in_directories
+
+log = logging.getLogger(__name__)
 
 
 @attr.s(frozen=True)
@@ -36,28 +39,38 @@ class NameIncantation(Incantation):
     """
 
     def __iter__(self):
-        directories = self.directories('**/*.encrypted*')
+        log.info(f"Searching for encrypted files in {self.directory}")
 
-        for enc_dir in directories:
+        directories = self.directories(self.directory, '**/*.encrypted*')
+        log.info(f"Found {len(directories)} encrypted directories")
+
+        for enc_dir in sorted(directories):
             dec_dir = self.rename_directory(enc_dir)
             for enc_path in enc_dir.glob('**/*'):
                 if enc_path.is_file():
                     yield (enc_path, self.rename(self.transpose(
                         enc_path, from_dir=enc_dir, to_dir=dec_dir)))
 
-        for enc_path in sorted(self.files('**/*.encrypted*')):
-            if not in_directories(enc_path, directories):
-                yield (enc_path, self.rename(enc_path))
+        files = [f for f in self.files(self.directory, '**/*.encrypted*')
+                 if not in_directories(f, directories)]
+        log.info(f"Found {len(files)} encrypted files")
 
-    def directories(self, pattern: str) -> typing.Sequence[pathlib.Path]:
+        for enc_path in sorted(files):
+            yield (enc_path, self.rename(enc_path))
+
+    @staticmethod
+    def directories(
+            directory: pathlib.Path,
+            pattern: str) -> typing.Sequence[pathlib.Path]:
         """Find directories that match a pattern."""
-        return tuple(sorted(
-            path for path in self.directory.glob(pattern) if path.is_dir()))
+        return tuple(sorted(p for p in directory.glob(pattern) if p.is_dir()))
 
-    def files(self, pattern: str) -> typing.Sequence[pathlib.Path]:
+    @staticmethod
+    def files(
+            directory: pathlib.Path,
+            pattern: str) -> typing.Sequence[pathlib.Path]:
         """Find our files that are not in the directories we already have."""
-        return tuple(sorted(
-            path for path in self.directory.glob(pattern) if path.is_file()))
+        return tuple(sorted(p for p in directory.glob(pattern) if p.is_file()))
 
     @staticmethod
     def rename_directory(path: pathlib.Path) -> pathlib.Path:

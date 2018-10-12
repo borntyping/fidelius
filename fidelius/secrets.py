@@ -103,6 +103,7 @@ class Secret:
         return self.encrypted.suffix == '.asc'
 
     def decrypt(self, gpg: GPG):
+        log.info(f"Decrypting {self.encrypted} to {self.encrypted}")
         return gpg.decrypt(self.encrypted, self.decrypted, self.armour)
 
     def re_encrypt(self, gpg: GPG, **kwargs):
@@ -152,3 +153,8 @@ class SecretKeeper:
             raise FideliusException(
                 f"Encrypted file(s) not excluded by .gitignore: "
                 f"{', '.join(sorted(included))}")
+
+    def decrypt(self):
+        log.info(f"Decrypting {len(self.secrets)} secrets")
+        for secret in self:
+            secret.decrypt(self.gpg)
