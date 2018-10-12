@@ -77,6 +77,7 @@ def main(
     incantation = NameIncantation(directory)
     gpg = GPG(verbose=gpg_verbose)
     ctx.obj: SecretKeeper = Fidelius.cast(incantation=incantation, gpg=gpg)
+    ctx.obj.run_gitignore_check()
 
 
 @main.command()

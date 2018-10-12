@@ -6,8 +6,6 @@ import typing
 import attr
 import click
 
-from .incantations import Incantation, NameIncantation
-
 log = logging.getLogger(__name__)
 
 
@@ -129,9 +127,6 @@ class SecretKeeper:
     secrets: typing.Dict[pathlib.Path, Secret] = attr.ib()
     gpg: GPG = attr.ib()
 
-    def __attrs_post_init__(self):
-        self.run_gitignore_check()
-
     def __getitem__(self, item: pathlib.Path):
         if item.resolve() not in self.secrets.keys():
             raise FideliusException(f"No secret named {item}")
@@ -157,19 +152,3 @@ class SecretKeeper:
             raise FideliusException(
                 f"Encrypted file(s) not excluded by .gitignore: "
                 f"{', '.join(sorted(included))}")
-
-
-class Fidelius:
-    @classmethod
-    def quick(cls, directory: pathlib.Path):
-        return cls.cast(
-            incantation=NameIncantation(directory),
-            gpg=GPG())
-
-    @staticmethod
-    def cast(incantation: Incantation, gpg: GPG) -> SecretKeeper:
-        return SecretKeeper(secrets={
-            encrypted.resolve(): Secret(
-                encrypted=encrypted.resolve(),
-                decrypted=decrypted.resolve(),
-            ) for encrypted, decrypted in incantation}, gpg=gpg)

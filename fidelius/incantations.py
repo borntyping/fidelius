@@ -7,23 +7,33 @@ import typing
 
 import attr
 
+from .secrets import Secret
 from .utils import in_directories
 
 
+@attr.s(frozen=True)
 class Incantation:
+    directory: pathlib.Path = attr.ib()
+
     def __iter__(self):
         raise NotImplementedError
 
+    @classmethod
+    def secrets(
+            cls,
+            directory: pathlib.Path) -> typing.Dict[pathlib.Path, Secret]:
+        return {encrypted.resolve(): Secret(
+            encrypted=encrypted.resolve(),
+            decrypted=decrypted.resolve(),
+        ) for encrypted, decrypted in cls(directory)}
 
-@attr.s(frozen=True)
+
 class NameIncantation(Incantation):
     """
     Search for secrets to encrypt/decrypt in a directory.
 
     Selects files and directories with '.encrypted' in the name.
     """
-
-    git: pathlib.Path = attr.ib()
 
     def __iter__(self):
         directories = self.directories('**/*.encrypted*')
@@ -41,11 +51,13 @@ class NameIncantation(Incantation):
 
     def directories(self, pattern: str) -> typing.Sequence[pathlib.Path]:
         """Find directories that match a pattern."""
-        return tuple(sorted(p for p in self.git.glob(pattern) if p.is_dir()))
+        return tuple(sorted(
+            path for path in self.directory.glob(pattern) if path.is_dir()))
 
     def files(self, pattern: str) -> typing.Sequence[pathlib.Path]:
         """Find our files that are not in the directories we already have."""
-        return tuple(sorted(p for p in self.git.glob(pattern) if p.is_file()))
+        return tuple(sorted(
+            path for path in self.directory.glob(pattern) if path.is_file()))
 
     @staticmethod
     def rename_directory(path: pathlib.Path) -> pathlib.Path:
