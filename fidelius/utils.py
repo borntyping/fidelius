@@ -4,8 +4,11 @@ from pathlib import Path
 import git
 
 
-def find_git_directory() -> Path():
-    return Path(git.Repo().working_dir)
+def find_git_directory() -> typing.Optional[Path]:
+    try:
+        return Path(git.Repo(search_parent_directories=True).working_dir)
+    except git.exc.InvalidGitRepositoryError:
+        return None
 
 
 def in_directory(
@@ -29,5 +32,3 @@ def in_directories(
         directories: typing.Sequence[Path]) -> bool:
     """Check if a path is a subpath of any of a list of directories."""
     return any(in_directory(path, directory) for directory in directories)
-
-

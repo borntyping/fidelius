@@ -1,4 +1,5 @@
 import functools
+import os.path
 import pathlib
 import typing
 
@@ -19,7 +20,7 @@ def rel(path: pathlib.Path) -> str:
 
     Returns a string as these should only be used for presentation.
     """
-    return str(path.relative_to(pathlib.Path.cwd()))
+    return os.path.relpath(path.as_posix(), pathlib.Path.cwd().as_posix())
 
 
 def enc(secret: Secret) -> str:
@@ -63,6 +64,7 @@ class PathType(click.Path):
         dir_okay=True,
         exists=True),
     default=find_git_directory,
+    required=True,
     help="Defaults to the current git repository.")
 @click.option(
     '-v', '--verbose', 'gpg_verbose',
