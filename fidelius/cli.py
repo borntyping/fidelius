@@ -6,9 +6,8 @@ import typing
 import click
 import click._termui_impl
 
-from fidelius.incantations import NameIncantation
-from fidelius.secrets import (
-    Fidelius, FideliusException, GPG, Secret, SecretKeeper)
+from fidelius.secrets import FideliusException, GPG, Secret, SecretKeeper
+from fidelius.spells import fidelius
 from fidelius.utils import find_git_directory
 from . import __doc__
 
@@ -76,17 +75,17 @@ def main(
         ctx,
         directory: pathlib.Path,
         gpg_verbose: bool):
-    incantation = NameIncantation(directory)
-    gpg = GPG(verbose=gpg_verbose)
-    ctx.obj: SecretKeeper = Fidelius.cast(incantation=incantation, gpg=gpg)
+    ctx.obj: SecretKeeper = fidelius(
+        directory=directory,
+        gpg=GPG(verbose=gpg_verbose))
     ctx.obj.run_gitignore_check()
 
 
 @main.command()
 @click.pass_obj
-def ls(fidelius: SecretKeeper):
+def ls(sk: SecretKeeper):
     """List all encrypted paths with their decrypted path."""
-    for secret in fidelius:
+    for secret in sk:
         click.echo(f"{enc(secret)} -> {dec(secret)}")
 
 
