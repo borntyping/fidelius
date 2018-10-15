@@ -6,10 +6,11 @@ import typing
 import click
 import click._termui_impl
 
-from fidelius.secrets import FideliusException, GPG, Secret, SecretKeeper
-from fidelius.spells import fidelius
-from fidelius.utils import find_git_directory
 from . import __doc__
+from .gpg import GPG
+from .secrets import Secret, SecretKeeper
+from .spells import fidelius
+from .utils import FideliusException, find_git_directory
 
 
 @functools.lru_cache()
@@ -75,9 +76,7 @@ def main(
         ctx,
         directory: pathlib.Path,
         gpg_verbose: bool):
-    ctx.obj: SecretKeeper = fidelius(
-        directory=directory,
-        gpg=GPG(verbose=gpg_verbose))
+    ctx.obj = fidelius(directory=directory, gpg=GPG(verbose=gpg_verbose))
     ctx.obj.run_gitignore_check()
 
 
@@ -147,7 +146,7 @@ def view(sk: SecretKeeper, encrypted_secret: pathlib.Path):
 
     # Use the `click._termui_impl.pager()` method directly because
     # `click.echo_via_pager` appends a newline.
-    click._termui_impl.pager(gpg_stdout)
+    click._termui_impl.pager(gpg_stdout)  # type: ignore
 
 
 @main.command()

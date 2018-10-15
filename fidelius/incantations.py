@@ -6,29 +6,25 @@ import logging
 import pathlib
 import typing
 
-import attr
-
 from .secrets import Secret
 from .utils import in_directories
 
 log = logging.getLogger(__name__)
 
+Pair = typing.Tuple[pathlib.Path, pathlib.Path]
+Pairs = typing.Sequence[Pair]
+PairMap = typing.Dict[pathlib.Path, Secret]
 
-@attr.s(frozen=True)
+
 class Incantation:
-    directory: pathlib.Path = attr.ib()
-
-    def __iter__(self):
+    def search(self, directory: pathlib.Path) -> Pairs:
         raise NotImplementedError
 
-    @classmethod
-    def secrets(
-            cls,
-            directory: pathlib.Path) -> typing.Dict[pathlib.Path, Secret]:
+    def secrets(self, directory: pathlib.Path) -> PairMap:
         return {encrypted.resolve(): Secret(
             encrypted=encrypted.resolve(),
             decrypted=decrypted.resolve(),
-        ) for encrypted, decrypted in cls(directory)}
+        ) for encrypted, decrypted in self.search(directory)}
 
 
 class NameIncantation(Incantation):
@@ -38,25 +34,29 @@ class NameIncantation(Incantation):
     Selects files and directories with '.encrypted' in the name.
     """
 
-    def __iter__(self):
-        log.info(f"Searching for encrypted files in {self.directory}")
+    def search(self, directory: pathlib.Path) -> Pairs:
+        log.info(f"Searching for encrypted files in {directory}")
+        pairs: typing.List[Pair] = []
 
-        directories = self.directories(self.directory, '**/*.encrypted*')
+        directories = self.directories(directory, '**/*.encrypted*')
         log.info(f"Found {len(directories)} encrypted directories")
 
         for enc_dir in sorted(directories):
             dec_dir = self.rename_directory(enc_dir)
             for enc_path in enc_dir.glob('**/*'):
                 if enc_path.is_file():
-                    yield (enc_path, self.rename(self.transpose(
-                        enc_path, from_dir=enc_dir, to_dir=dec_dir)))
+                    pairs.append((enc_path, self.rename(self.transpose(
+                        enc_path, from_dir=enc_dir, to_dir=dec_dir))))
 
-        files = [f for f in self.files(self.directory, '**/*.encrypted*')
+        files = [f for f in self.files(directory, '**/*.encrypted*')
                  if not in_directories(f, directories)]
         log.info(f"Found {len(files)} encrypted files")
 
         for enc_path in sorted(files):
-            yield (enc_path, self.rename(enc_path))
+            pairs.append((enc_path, self.rename(enc_path)))
+
+        log.info(f"Search found {len(pairs)} encrypted files in {directory}")
+        return tuple(pairs)
 
     @staticmethod
     def directories(
