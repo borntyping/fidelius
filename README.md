@@ -42,6 +42,16 @@ fidelius view 'example.encrypted.txt.asc'
 fidelius decrypt 'example.encrypted.txt.asc' && cat 'example.decrypted.txt'
 ```
 
+You can also use Fidelius from another Python program. Only decryption is
+currently provided via this API, intended for use in CI tasks:
+
+```python
+import pathlib
+import fidelius.spells
+
+fidelius.spells.fidelius(pathlib.Path.cwd()).decrypt()
+```
+
 Rules
 -----
 
