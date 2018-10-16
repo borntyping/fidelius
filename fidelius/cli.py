@@ -181,6 +181,12 @@ def edit(
         armour=secret.armour,
         recipients=recipients)
 
+    if secret.decrypted.exists():
+        click.secho(
+            f"Decrypted plaintext {secret.decrypted} is out of date - "
+            f"run 'fidelius decrypt' to update it or 'fidelius clean' to remove it",
+            fg='yellow')
+
 
 @main.command()
 @write_flags
