@@ -1,4 +1,5 @@
 import functools
+import logging
 import os.path
 import pathlib
 import typing
@@ -6,7 +7,7 @@ import typing
 import click
 import click._termui_impl
 
-from . import __doc__
+from . import __doc__, __version__
 from .gpg import GPG
 from .secrets import Secret, SecretKeeper
 from .spells import fidelius
@@ -58,7 +59,7 @@ class PathType(click.Path):
 
 @click.group(help=__doc__)
 @click.option(
-    '-d', '--directory',
+    '-p', '--path',
     type=PathType(
         file_okay=False,
         dir_okay=True,
@@ -67,6 +68,11 @@ class PathType(click.Path):
     required=True,
     help="Defaults to the current git repository.")
 @click.option(
+    '-d', '--debug', 'debug',
+    default=False,
+    is_flag=True,
+    help="Enable debug logging.")
+@click.option(
     '-v', '--verbose', 'gpg_verbose',
     default=False,
     is_flag=True,
@@ -74,10 +80,17 @@ class PathType(click.Path):
 @click.pass_context
 def main(
         ctx,
-        directory: pathlib.Path,
+        debug: bool,
+        path: pathlib.Path,
         gpg_verbose: bool):
-    ctx.obj = fidelius(directory=directory, gpg=GPG(verbose=gpg_verbose))
+    logging.basicConfig(level=(logging.DEBUG if debug else logging.WARNING))
+    ctx.obj = fidelius(directory=path, gpg=GPG(verbose=gpg_verbose))
     ctx.obj.run_gitignore_check()
+
+
+@main.command()
+def version():
+    click.echo(f"fidelius {__version__}")
 
 
 @main.command()
@@ -142,11 +155,11 @@ def cat(sk: SecretKeeper, encrypted_secret: pathlib.Path):
 @click.pass_obj
 def view(sk: SecretKeeper, encrypted_secret: pathlib.Path):
     """View the decrypted text of an encrypted file in your $PAGER."""
-    gpg_stdout = sk[encrypted_secret].stream(sk.gpg)
+    contents = sk[encrypted_secret].contents(sk.gpg)
 
     # Use the `click._termui_impl.pager()` method directly because
     # `click.echo_via_pager` appends a newline.
-    click._termui_impl.pager(gpg_stdout)  # type: ignore
+    click._termui_impl.pager(contents)  # type: ignore
 
 
 @main.command()

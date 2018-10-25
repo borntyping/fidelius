@@ -15,11 +15,34 @@ class GPG:
     verbose: bool = attr.ib(default=False)
     parents: bool = attr.ib(default=True)
 
+    def command(
+            self,
+            arguments: typing.Sequence[str],
+            armour: bool) -> typing.Tuple[str, ...]:
+        command: typing.Tuple[str, ...] = ('gpg', '--yes')
+        if armour:
+            command = (*command, '--armour')
+        if self.verbose:
+            command = (*command, '--verbose')
+        return (*command, *arguments)
+
+    def run(self,
+            arguments: typing.Sequence[str],
+            armour: bool,
+            input: typing.Optional[str] = None) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            self.command(arguments, armour),
+            encoding='utf-8',
+            input=input,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if not self.verbose else None,
+            check=True)
+
     def decrypt(
             self,
             encrypted: pathlib.Path,
             decrypted: pathlib.Path,
-            armour: bool) -> None:
+            armour: bool) -> subprocess.CompletedProcess:
         """Run an appropriate decryption method on the encrypted file."""
         log.debug(f"Decrypting {encrypted} to {decrypted}")
 
@@ -30,52 +53,27 @@ class GPG:
                 raise FideliusException(
                     f"Directory {decrypted.parent} does not exist")
 
-        subprocess.run(
-            self._gpg([
-                '--output', str(decrypted),
-                '--decrypt', str(encrypted)
-            ], armour),
-            encoding='utf-8',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE if not self.verbose else None)
+        return self.run([
+            '--output', str(decrypted),
+            '--decrypt', str(encrypted)
+        ], armour=armour)
 
     def contents(self, path: pathlib.Path, armour: bool) -> str:
         log.debug("Reading contents of {path}")
-        process = self._decrypt(path, armour)
-        process.wait()
-        return process.stdout.read()
-
-    def stream(self, path: pathlib.Path, armour: bool):
-        log.debug(f"Streaming {path}")
-        return self._decrypt(path, armour).stdout
-
-    def _decrypt(self, path: pathlib.Path, armour: bool) -> subprocess.Popen:
-        return subprocess.Popen(
-            self._gpg(['--decrypt', str(path)], armour),
-            encoding='utf-8',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE if not self.verbose else None)
-
-    @staticmethod
-    def _gpg(args: typing.Sequence[str], armour: bool) -> typing.Sequence[str]:
-        command = ['gpg', '--yes']
-        if armour:
-            command += ['--armour']
-        command += args
-        return tuple(command)
+        return self.run(['--decrypt', str(path)], armour).stdout
 
     def encrypt_text(
             self,
             path: pathlib.Path,
             text: str,
             armour: bool,
-            recipients: typing.Iterable[str]):
+            recipients: typing.Iterable[str]) -> subprocess.CompletedProcess:
         log.debug(f"Encrypting {path}")
         args: typing.List[str] = []
         for recipient in recipients:
             args += ['--recipient', recipient]
         args += ['--output', str(path), '--encrypt']
-        subprocess.run(self._gpg(args, armour), encoding='utf-8', input=text)
+        return self.run(args, armour=armour, input=text)
 
     def encrypt_file(
             self,
@@ -88,4 +86,4 @@ class GPG:
         for recipient in recipients:
             args += ['--recipient', recipient]
         args += ['--output', str(output), '--encrypt', str(encrypt)]
-        subprocess.run(self._gpg(args, armour), encoding='utf-8')
+        self.run(args, armour)

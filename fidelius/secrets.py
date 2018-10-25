@@ -38,10 +38,6 @@ class Secret:
             armour=self.armour,
             **kwargs)
 
-    def stream(self, gpg: GPG):
-        log.debug(f"Streaming {self.encrypted}")
-        return gpg.stream(self.encrypted, self.armour)
-
     def contents(self, gpg: GPG):
         log.debug(f"Reading contents of {self.encrypted}")
         return gpg.contents(self.encrypted, self.armour)
