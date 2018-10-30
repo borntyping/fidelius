@@ -39,8 +39,8 @@ class GPG:
                 stderr=subprocess.PIPE,
                 check=True)
         except subprocess.CalledProcessError as error:
-            for line in error.stderr:
-                logging.error(line)
+            for line in error.stderr.splitlines():
+                log.error(line)
             raise
 
     def decrypt(
