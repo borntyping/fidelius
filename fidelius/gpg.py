@@ -29,14 +29,19 @@ class GPG:
     def run(self,
             arguments: typing.Sequence[str],
             armour: bool,
-            input: typing.Optional[str] = None) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            self.command(arguments, armour),
-            encoding='utf-8',
-            input=input,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE if not self.verbose else None,
-            check=True)
+            stdin: typing.Optional[str] = None) -> subprocess.CompletedProcess:
+        try:
+            return subprocess.run(
+                self.command(arguments, armour),
+                encoding='utf-8',
+                input=stdin,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True)
+        except subprocess.CalledProcessError as error:
+            for line in error.stderr:
+                logging.error(line)
+            raise
 
     def decrypt(
             self,
@@ -73,7 +78,7 @@ class GPG:
         for recipient in recipients:
             args += ['--recipient', recipient]
         args += ['--output', str(path), '--encrypt']
-        return self.run(args, armour=armour, input=text)
+        return self.run(args, armour=armour, stdin=text)
 
     def encrypt_file(
             self,

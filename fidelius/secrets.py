@@ -49,9 +49,10 @@ class Secret:
 
 @attr.s(frozen=True)
 class SecretKeeper:
-    directory: pathlib.Path = attr.ib()
     secrets: typing.Dict[pathlib.Path, Secret] = attr.ib()
-    gpg: GPG = attr.ib()
+
+    directory: pathlib.Path = attr.ib(factory=pathlib.Path.cwd)
+    gpg: GPG = attr.ib(factory=GPG)
 
     def __getitem__(self, item: pathlib.Path):
         if item.resolve() not in self.secrets.keys():

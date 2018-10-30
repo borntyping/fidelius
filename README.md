@@ -46,10 +46,10 @@ You can also use Fidelius from another Python program. Only decryption is
 currently provided via this API, intended for use in CI tasks:
 
 ```python
-import pathlib
-import fidelius.spells
-
-fidelius.spells.fidelius(pathlib.Path.cwd()).decrypt()
+from fidelius.incantations import Fidelius
+from fidelius.secrets import SecretKeeper
+secret_keeper: SecretKeeper = Fidelius().cast()
+secret_keeper.decrypt()
 ```
 
 Rules

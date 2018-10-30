@@ -6,7 +6,10 @@ import logging
 import pathlib
 import typing
 
-from .secrets import Secret
+import attr
+
+from .gpg import GPG
+from .secrets import Secret, SecretKeeper
 from .utils import in_directories
 
 log = logging.getLogger(__name__)
@@ -16,29 +19,24 @@ Pairs = typing.Sequence[Pair]
 PairMap = typing.Dict[pathlib.Path, Secret]
 
 
-class Incantation:
-    def search(self, directory: pathlib.Path) -> Pairs:
-        raise NotImplementedError
-
-    def secrets(self, directory: pathlib.Path) -> PairMap:
-        return {encrypted.resolve(): Secret(
-            encrypted=encrypted.resolve(),
-            decrypted=decrypted.resolve(),
-        ) for encrypted, decrypted in self.search(directory)}
-
-
-class NameIncantation(Incantation):
+@attr.s(frozen=True)
+class Fidelius:
     """
     Search for secrets to encrypt/decrypt in a directory.
 
     Selects files and directories with '.encrypted' in the name.
     """
 
-    def search(self, directory: pathlib.Path) -> Pairs:
-        log.info(f"Searching for encrypted files in {directory}")
+    directory: pathlib.Path = attr.ib(factory=pathlib.Path.cwd)
+
+    def cast(self, **kwargs) -> SecretKeeper:
+        return SecretKeeper(secrets=self.search(), directory=self.directory, **kwargs)
+
+    def search(self) -> PairMap:
+        log.info(f"Searching for encrypted files in {self.directory}")
         pairs: typing.List[Pair] = []
 
-        directories = self.directories(directory, '**/*.encrypted*')
+        directories = self.directories(self.directory, '**/*.encrypted*')
         log.info(f"Found {len(directories)} encrypted directories")
 
         for enc_dir in sorted(directories):
@@ -48,15 +46,21 @@ class NameIncantation(Incantation):
                     pairs.append((enc_path, self.rename(self.transpose(
                         enc_path, from_dir=enc_dir, to_dir=dec_dir))))
 
-        files = [f for f in self.files(directory, '**/*.encrypted*')
+        files = [f for f in self.files(self.directory, '**/*.encrypted*')
                  if not in_directories(f, directories)]
         log.info(f"Found {len(files)} encrypted files")
 
         for enc_path in sorted(files):
             pairs.append((enc_path, self.rename(enc_path)))
 
-        log.info(f"Search found {len(pairs)} encrypted files in {directory}")
-        return tuple(pairs)
+        log.info(f"Search found {len(pairs)} encrypted files in {self.directory}")
+
+        secrets = {encrypted.resolve(): Secret(
+            encrypted=encrypted.resolve(),
+            decrypted=decrypted.resolve(),
+        ) for encrypted, decrypted in pairs}
+
+        return secrets
 
     @staticmethod
     def directories(

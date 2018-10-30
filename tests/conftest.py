@@ -15,9 +15,9 @@ def invoke():
     def invoke_func(arguments: typing.Sequence[str]):
         assert all(isinstance(arg, str) for arg in arguments)
         runner = click.testing.CliRunner()
-        result = runner.invoke(fidelius.cli.main, ['-d', ROOT, *arguments])
+        result = runner.invoke(fidelius.cli.main, ('-p', ROOT.as_posix(), *arguments))
         if result.exit_code != 0:
-            message = "Command fidelius {' '.join(arguments)} failed"
+            message = f"Command fidelius {' '.join(arguments)} failed"
             raise Exception(message) from result.exception
         return result.output.splitlines()
 

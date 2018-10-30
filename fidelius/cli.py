@@ -9,8 +9,8 @@ import click._termui_impl
 
 from . import __doc__, __version__
 from .gpg import GPG
+from .incantations import Fidelius
 from .secrets import Secret, SecretKeeper
-from .spells import fidelius
 from .utils import FideliusException, find_git_directory
 
 
@@ -84,7 +84,7 @@ def main(
         path: pathlib.Path,
         gpg_verbose: bool):
     logging.basicConfig(level=(logging.DEBUG if debug else logging.WARNING))
-    ctx.obj = fidelius(directory=path, gpg=GPG(verbose=gpg_verbose))
+    ctx.obj = Fidelius(path).cast(gpg=GPG(verbose=gpg_verbose))
     ctx.obj.run_gitignore_check()
 
 
