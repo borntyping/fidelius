@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 class GPG:
     verbose: bool = attr.ib(default=False)
     parents: bool = attr.ib(default=True)
+    home: typing.Optional[pathlib.Path] = attr.ib(default=None)
 
     def command(
             self,
@@ -30,6 +31,7 @@ class GPG:
             arguments: typing.Sequence[str],
             armour: bool,
             stdin: typing.Optional[str] = None) -> subprocess.CompletedProcess:
+        env = {'GNUPGHOME': self.home.as_posix()} if self.home else {}
         try:
             return subprocess.run(
                 self.command(arguments, armour),
@@ -37,6 +39,7 @@ class GPG:
                 input=stdin,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=env,
                 check=True)
         except subprocess.CalledProcessError as error:
             for line in error.stderr.splitlines():
