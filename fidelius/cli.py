@@ -55,6 +55,12 @@ secret_path_options = click.argument(
     type=PathType(),
     required=True)
 
+secrets_argument = click.argument(
+    'secrets',
+    type=PathType(),
+    required=True,
+    nargs=-1)
+
 
 @click.group(help=__doc__)
 @click.option(
@@ -136,14 +142,12 @@ def clean(sk: SecretKeeper):
 
 
 @main.command()
-@click.argument(
-    'encrypted_secret',
-    type=PathType(exists=True),
-    required=True)
+@secrets_argument
 @click.pass_obj
-def cat(sk: SecretKeeper, encrypted_secret: pathlib.Path):
+def cat(sk: SecretKeeper, secrets: typing.Sequence[pathlib.Path]):
     """Read and print the contents of an encrypted file."""
-    click.echo(sk[encrypted_secret].contents(sk.gpg), nl=False)
+    for secret in secrets:
+        click.echo(sk[secret].contents(sk.gpg), nl=False)
 
 
 @main.command()
@@ -203,7 +207,7 @@ def edit(
 
 @main.command(name='recrypt')
 @recipients_option
-@click.argument('secrets', type=PathType(), required=True, nargs=-1)
+@secrets_argument
 @click.option(
     '--force/--no-force',
     default=False,
