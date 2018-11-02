@@ -20,7 +20,9 @@ class GPG:
             self,
             arguments: typing.Sequence[str],
             armour: bool) -> typing.Tuple[str, ...]:
-        command: typing.Tuple[str, ...] = ('gpg', '--yes')
+        command: typing.Tuple[str, ...] = ('gpg', '--yes', '--batch')
+        if self.home:
+            command = (*command, '--homedir', self.home.as_posix())
         if armour:
             command = (*command, '--armour')
         if self.verbose:
@@ -31,7 +33,6 @@ class GPG:
             arguments: typing.Sequence[str],
             armour: bool,
             stdin: typing.Optional[str] = None) -> subprocess.CompletedProcess:
-        env = {'GNUPGHOME': self.home.as_posix()} if self.home else {}
         try:
             return subprocess.run(
                 self.command(arguments, armour),
@@ -39,7 +40,6 @@ class GPG:
                 input=stdin,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env=env,
                 check=True)
         except subprocess.CalledProcessError as error:
             for line in error.stderr.splitlines():
