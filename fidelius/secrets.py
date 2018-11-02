@@ -22,6 +22,9 @@ class Secret:
             raise FideliusException(
                 f"I don't know how to decrypt {self.encrypted.name}")
 
+    def __str__(self):
+        return self.encrypted.name
+
     @property
     def armour(self):
         return self.encrypted.suffix == '.asc'

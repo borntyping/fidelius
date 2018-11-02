@@ -11,7 +11,9 @@ from . import __doc__, __version__
 from .gpg import GPG
 from .incantations import Fidelius
 from .secrets import Secret, SecretKeeper
-from .utils import FideliusException, find_git_directory
+from .utils import find_git_directory
+
+log = logging.getLogger(__name__)
 
 
 @functools.lru_cache()
@@ -34,27 +36,24 @@ def dec(secret: Secret) -> str:
     return click.style(rel(secret.decrypted), fg='red')
 
 
-def write_flags(func):
-    recipients = click.option(
-        '-r', '--recipient', 'recipients',
-        metavar='ID',
-        envvar='FIDELIUS_RECIPIENTS',
-        multiple=True,
-        required=True,
-        type=click.STRING,
-        help="Forwarded directly to gpg --encrypt.")
-
-    path = click.argument(
-        'path',
-        type=PathType(),
-        required=True)
-
-    return recipients(path(func))
-
-
 class PathType(click.Path):
     def convert(self, value, param, ctx):
         return pathlib.Path(super().convert(value, param, ctx))
+
+
+recipients_option = click.option(
+    '-r', '--recipient', 'recipients',
+    metavar='ID',
+    envvar='FIDELIUS_RECIPIENTS',
+    multiple=True,
+    required=True,
+    type=click.STRING,
+    help="Forwarded directly to gpg --encrypt.")
+
+secret_path_options = click.argument(
+    'path',
+    type=PathType(),
+    required=True)
 
 
 @click.group(help=__doc__)
@@ -163,7 +162,8 @@ def view(sk: SecretKeeper, encrypted_secret: pathlib.Path):
 
 
 @main.command()
-@write_flags
+@recipients_option
+@secret_path_options
 @click.pass_obj
 def edit(
         sk: SecretKeeper,
@@ -201,32 +201,44 @@ def edit(
             fg='yellow')
 
 
-@main.command()
-@write_flags
+@main.command(name='recrypt')
+@recipients_option
+@click.argument('secrets', type=PathType(), required=True, nargs=-1)
+@click.option(
+    '--force/--no-force',
+    default=False,
+    help='Re-encrypt secrets when their contents are unchanged.')
 @click.pass_obj
 def re_encrypt(
         sk: SecretKeeper,
-        path: pathlib.Path,
-        recipients: typing.Iterable[str]):
+        secrets: typing.Sequence[pathlib.Path],
+        recipients: typing.Iterable[str],
+        force: bool):
     """
-    Re-encrypt a file using the decrypted plaintext.
+    Re-encrypt secrets from their decrypted plaintext.
 
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
-    secret = sk[path]
+    for path in secrets:
+        secret: Secret = sk[path]
 
-    if not secret.decrypted.exists():
-        raise FideliusException(f"Secret has not been decrypted")
+        if not secret.decrypted.exists():
+            click.echo(f"Plaintext for {enc(secret)} does not exist")
+            continue
 
-    if secret.plaintext() == secret.contents(sk.gpg):
-        raise click.ClickException("No changes were made to the file")
+        if not force and secret.plaintext() == secret.contents(sk.gpg):
+            click.echo(f"Skipping {enc(secret)} as no changes have been made "
+                       f"in {dec(secret)}")
+            continue
 
-    secret.re_encrypt(sk.gpg, recipients=recipients)
+        secret.re_encrypt(sk.gpg, recipients=recipients)
+        click.echo(f"Encrypted {enc(secret)} from the plaintext in {dec(secret)}")
 
 
 @main.command()
-@write_flags
+@recipients_option
+@secret_path_options
 @click.argument(
     'plaintext', type=PathType(exists=True), default=None, required=False)
 @click.pass_obj
