@@ -74,6 +74,24 @@ directory.encrypted/two.json.gpg -> directory/two.decrypted.json
 directory.encrypted/three.encrypted.json.gpg -> directory/three.decrypted.json
 ```
 
+Using with `git diff`
+---------------------
+
+Add a `.gitattributes` file to your repository:
+
+```
+*.asc diff=fidelius
+```
+
+Add a custom git diff driver to `~/.gitconfig` in your home directory:
+
+```
+[diff "fidelius"]
+    textconv = "gpg --batch --quiet --decrypt"
+```
+
+The `git diff` command will now compare the plaintext of your secrets.
+
 Alternatives
 ------------
 
