@@ -95,6 +95,7 @@ def main(
 
 @main.command()
 def version():
+    """Show the application version."""
     click.echo(f"fidelius {__version__}")
 
 
@@ -123,10 +124,21 @@ def ls_decrypted(sk: SecretKeeper):
 
 
 @main.command()
+@click.argument(
+    'secrets',
+    type=PathType(),
+    required=False,
+    nargs=-1)
 @click.pass_obj
-def decrypt(sk: SecretKeeper):
-    """Decrypt all files."""
-    for secret in sk:
+def decrypt(sk: SecretKeeper, secrets: typing.Sequence[pathlib.Path]):
+    """
+    Create decrypted plaintext from encrypted secrets.
+
+    If not paths are provides, decrypts all secrets.
+    """
+    selected: typing.List[Secret] = [sk[path] for path in secrets] if secrets else list(sk.secrets)
+
+    for secret in selected:
         secret.decrypt(sk.gpg)
         click.echo(f"Decrypted {enc(secret)} to {dec(secret)}")
 
@@ -134,7 +146,7 @@ def decrypt(sk: SecretKeeper):
 @main.command()
 @click.pass_obj
 def clean(sk: SecretKeeper):
-    """Delete all decrypted files."""
+    """Delete all decrypted plaintext files."""
     for secret in sk:
         if secret.decrypted.exists():
             click.echo(f"Deleting {dec(secret)}")
@@ -145,7 +157,7 @@ def clean(sk: SecretKeeper):
 @secrets_argument
 @click.pass_obj
 def cat(sk: SecretKeeper, secrets: typing.Sequence[pathlib.Path]):
-    """Read and print the contents of an encrypted file."""
+    """Print the contents of an encrypted file."""
     for secret in secrets:
         click.echo(sk[secret].contents(sk.gpg), nl=False)
 
@@ -174,7 +186,7 @@ def edit(
         path: pathlib.Path,
         recipients: typing.Iterable[str]):
     """
-    Edit an encrypted file.
+    Edit an encrypted file without creating decrypted plaintext.
 
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
@@ -205,7 +217,7 @@ def edit(
             fg='yellow')
 
 
-@main.command(name='recrypt')
+@main.command(name='encrypt')
 @recipients_option
 @secrets_argument
 @click.option(
@@ -213,13 +225,13 @@ def edit(
     default=False,
     help='Re-encrypt secrets when their contents are unchanged.')
 @click.pass_obj
-def re_encrypt(
+def encrypt(
         sk: SecretKeeper,
         secrets: typing.Sequence[pathlib.Path],
         recipients: typing.Iterable[str],
         force: bool):
     """
-    Re-encrypt secrets from their decrypted plaintext.
+    Create encrypted secrets from decrypted plaintext.
 
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
@@ -246,13 +258,13 @@ def re_encrypt(
 @click.argument(
     'plaintext', type=PathType(exists=True), default=None, required=False)
 @click.pass_obj
-def new(
+def create(
         sk: SecretKeeper,
         path: pathlib.Path,
         plaintext: pathlib.Path,
         recipients: typing.Iterable[str]):
     """
-    Create a new encrypted file.
+    Create a new encrypted secret from a file.
 
     Paths should match one of the following forms:
 
@@ -264,10 +276,15 @@ def new(
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
-    if len(path.suffixes) < 2:
+    if len(path.suffixes) < 2 or path.suffix not in {'asc', 'gpg'}:
         raise click.ClickException(
             "File names should be in the form '<name>.<ext>.<asc|gpg>' or "
             "'<name>.encrypted.<ext>.<asc|gpg>'.")
+
+    if not any('encrypted' in part for part in path.parts):
+        raise click.ClickException(
+            "File names should be in the form '<name>.encrypted.<ext>[.<asc|gpg>]' "
+            "or be in a directory named in the form '<name>.encrypted/'.")
 
     if plaintext:
         sk.gpg.encrypt_file(
