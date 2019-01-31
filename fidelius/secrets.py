@@ -6,8 +6,8 @@ import typing
 
 import attr
 
-from .utils import FideliusException
 from .gpg import GPG
+from .utils import FideliusException
 
 log = logging.getLogger(__name__)
 
@@ -68,6 +68,12 @@ class SecretKeeper:
 
     def get(self, item: pathlib.Path, default: Secret) -> Secret:
         return self.secrets.get(item.resolve(), default)
+
+    def select(self, paths: typing.Iterable[pathlib.Path]) -> typing.List[Secret]:
+        if paths:
+            return [self[path] for path in paths]
+        else:
+            return [s for s in self]
 
     def __iter__(self):
         return iter(sorted(self.secrets.values(), key=lambda s: s.encrypted))

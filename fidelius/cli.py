@@ -26,14 +26,14 @@ def rel(path: pathlib.Path) -> str:
     return os.path.relpath(path.as_posix(), pathlib.Path.cwd().as_posix())
 
 
-def enc(secret: Secret) -> str:
+def enc(secret: Secret, fg: typing.Optional[str] = 'green') -> str:
     """Style a path to a encrypted file."""
-    return click.style(rel(secret.encrypted), fg='green')
+    return click.style(rel(secret.encrypted), fg=fg)
 
 
-def dec(secret: Secret) -> str:
+def dec(secret: Secret, fg: typing.Optional[str] = 'red') -> str:
     """Style a path to a decrypted file."""
-    return click.style(rel(secret.decrypted), fg='red')
+    return click.style(rel(secret.decrypted), fg=fg)
 
 
 class PathType(click.Path):
@@ -58,7 +58,7 @@ secret_path_options = click.argument(
 secrets_argument = click.argument(
     'secrets',
     type=PathType(),
-    required=True,
+    required=False,
     nargs=-1)
 
 
@@ -124,11 +124,7 @@ def ls_decrypted(sk: SecretKeeper):
 
 
 @main.command()
-@click.argument(
-    'secrets',
-    type=PathType(),
-    required=False,
-    nargs=-1)
+@secrets_argument
 @click.pass_obj
 def decrypt(sk: SecretKeeper, secrets: typing.Sequence[pathlib.Path]):
     """
@@ -136,9 +132,7 @@ def decrypt(sk: SecretKeeper, secrets: typing.Sequence[pathlib.Path]):
 
     If not paths are provides, decrypts all secrets.
     """
-    selected: typing.List[Secret] = [sk[path] for path in secrets] if secrets else list(sk.secrets)
-
-    for secret in selected:
+    for secret in sk.select(secrets):
         secret.decrypt(sk.gpg)
         click.echo(f"Decrypted {enc(secret)} to {dec(secret)}")
 
@@ -158,8 +152,8 @@ def clean(sk: SecretKeeper):
 @click.pass_obj
 def cat(sk: SecretKeeper, secrets: typing.Sequence[pathlib.Path]):
     """Print the contents of an encrypted file."""
-    for secret in secrets:
-        click.echo(sk[secret].contents(sk.gpg), nl=False)
+    for secret in sk.select(secrets):
+        click.echo(secret.contents(sk.gpg), nl=False)
 
 
 @main.command()
@@ -236,16 +230,15 @@ def encrypt(
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
-    for path in secrets:
-        secret: Secret = sk[path]
-
+    for secret in sk.select(secrets):
         if not secret.decrypted.exists():
             click.echo(f"Plaintext for {enc(secret)} does not exist")
             continue
 
         if not force and secret.plaintext() == secret.contents(sk.gpg):
-            click.echo(f"Skipping {enc(secret)} as no changes have been made "
-                       f"in {dec(secret)}")
+            click.secho(
+                f"Skipping {rel(secret.encrypted)} as no changes have been "
+                f"made in {rel(secret.decrypted)}", fg='bright_black')
             continue
 
         secret.re_encrypt(sk.gpg, recipients=recipients)
