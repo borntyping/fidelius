@@ -276,7 +276,7 @@ def create(
     The $FIDELIUS_RECIPIENTS environment variable should be a whitespace
     separated list of recipients GPG will encrypt the new contents for.
     """
-    if len(path.suffixes) < 2 or path.suffix not in {'asc', 'gpg'}:
+    if len(path.suffixes) < 2 or path.suffix not in {'.asc', '.gpg'}:
         raise click.ClickException(
             "File names should be in the form '<name>.<ext>.<asc|gpg>' or "
             "'<name>.encrypted.<ext>.<asc|gpg>'.")
